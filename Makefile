@@ -10,17 +10,17 @@ generate: generator.o
 generator.o: generator.c
 	$(CC) $(CFLAGS) generator.c
 
-examine: aaa.o
-	$(CC) aaa.o -o aaa.out
-	./aaa.out	
+examine: examine.o
+	$(CC) examine.o -o examine.out
+	./examine.out	
 
-aaa.o: aaa.c
-	$(CC) $(CFLAGS) aaa.c
+examine.o: examine.c
+	$(CC) $(CFLAGS) examine.c
 	
 clean: 
-	rm -rf *o hello
-	rm -rf *out hello
-	rm -rf *txt hello
+	rm -rf *.o
+	rm -rf *.out
+	rm -rf *.txt 
 
 
 
