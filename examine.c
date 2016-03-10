@@ -6,16 +6,9 @@
 #define highLimit 30
 #define BUF_SIZE 5000000
 
-long read(FILE *file, float **buffer, long limit) {
-    int i, result;
-    for(i=0; i<BUF_SIZE; i++) {
-        buffer[i] = (float *) malloc(sizeof(float) * 3);
-        result = fscanf(file,"%f %f %f \n",&buffer[i][0],&buffer[i][1],&buffer[i][2]);
-        if(result == EOF) return (i-1);
-        if(i == limit) return limit;
-    }
-    return BUF_SIZE;
-}
+long read(FILE *file, float **buffer, long limit);
+int checkArgs(char **argv);
+void printTime(struct timespec start, struct timespec end);
 
 int main(int argc, char** argv) {
     float **buffer;
@@ -26,30 +19,7 @@ int main(int argc, char** argv) {
     char done = 0;
     char usage[] = "Usage: examine\n\t[number of collisions ( -1 as many as in file)]\n\t[maximum run time (-1 unlimited time)]\n\t[input file]\n\t[num of openmp threads (-1 all available threads)]\n\t[num of openmpi processes (-1 all available processes)]\n";
 
-    if(argv[1] == NULL) {
-        printf("Number of collisions not specified.\n");
-        printf("%s",usage);
-        return 1;
-    }
-
-    if(argv[2] == NULL) {
-        printf("Maximum run time not specified.\n");
-        printf("%s",usage);
-        return 1;
-    }
-    if(argv[3] == NULL) {
-        printf("Input file not specified.\n");
-        printf("%s",usage);
-        return 1;
-    }
-    if(argv[4] == NULL) {
-        printf("OpenMP threads not specified.\n");
-        printf("%s",usage);
-        return 1;
-    }
-
-    if(argv[5] == NULL) {
-        printf("OpenMPI process number not specified.\n");
+    if(checkArgs(argv) == 1) {
         printf("%s",usage);
         return 1;
     }
@@ -77,32 +47,75 @@ int main(int argc, char** argv) {
     while(!done) {
         readLines = read(data, buffer, limit);
 
-        if(readLines <= limit) {
+        if(readLines == limit) {
+            printf("Limit reached.\n");
+            done = 1;
+        }
+       
+        else if(readLines < BUF_SIZE) {
             printf("End of file reached\n");
             done = 1;
         }
 
-        else if(readLines == limit) {
-            printf("Limit reached.\n");
-            done = 1;
-        }
-
         printf("Debug: %ld %ld\n",total, readLines);
-        for(i=total; i<readLines+total; i++) printf("%f %f %f \n",buffer[i][0],buffer[i][1],buffer[i][2]);
         total += readLines;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &end);
-    const int DAS_NANO_SECONDS_IN_SEC = 1000000000;
-    long timeElapsed_s = end.tv_sec - start.tv_sec;
-    long timeElapsed_n = end.tv_nsec - start.tv_nsec;
-    //If we have a negative number in timeElapsed_n , borrow a
-    //carry from seconds
-    if ( timeElapsed_n < 0 ) {timeElapsed_n =
-    DAS_NANO_SECONDS_IN_SEC + timeElapsed_n; timeElapsed_s--;}
-    printf("Time: %ld.%09ld secs \n",timeElapsed_s,timeElapsed_n);
+
+    printTime(start, end);
 
     fclose(data);
     return 0;
 }
 
+int checkArgs(char **argv) {
+    if(argv[1] == NULL) {
+        printf("Number of collisions not specified.\n");
+        return 1;
+    }
+
+    if(argv[2] == NULL) {
+        printf("Maximum run time not specified.\n");
+        return 1;
+    }
+    if(argv[3] == NULL) {
+        printf("Input file not specified.\n");
+        return 1;
+    }
+    if(argv[4] == NULL) {
+        printf("OpenMP threads not specified.\n");
+        return 1;
+    }
+
+    if(argv[5] == NULL) {
+        printf("OpenMPI process number not specified.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+long read(FILE *file, float **buffer, long limit) {
+    int i, result;
+    for(i=0; i<BUF_SIZE; i++) {
+        buffer[i] = (float *) malloc(sizeof(float) * 3);
+        result = fscanf(file,"%f %f %f \n",&buffer[i][0],&buffer[i][1],&buffer[i][2]);
+        if(result == EOF) return (i-1);
+        if(i == limit) return limit;
+    }
+    return BUF_SIZE;
+}
+
+void printTime(struct timespec start, struct timespec end) {
+    const int DAS_NANO_SECONDS_IN_SEC = 1000000000;
+    long timeElapsed_s = end.tv_sec - start.tv_sec;
+    long timeElapsed_n = end.tv_nsec - start.tv_nsec;
+    if ( timeElapsed_n < 0 ) {
+        timeElapsed_n =
+            DAS_NANO_SECONDS_IN_SEC + timeElapsed_n;
+        timeElapsed_s--;
+    }
+    printf("Time: %ld.%09ld secs \n",timeElapsed_s,timeElapsed_n);
+
+}
