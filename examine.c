@@ -46,7 +46,6 @@ int main(int argc, char** argv) {
 
     while(!done) {
         readLines = read(data, buffer, limit);
-
         if(readLines == limit) {
             printf("Limit reached.\n");
             done = 1;
@@ -56,7 +55,20 @@ int main(int argc, char** argv) {
             printf("End of file reached\n");
             done = 1;
         }
-
+	
+	for(i=0;i<readLines;i++)
+	{	
+	   	if(buffer[i][0]>=lowLimit && buffer[i][0]<=highLimit)
+		{
+			if(buffer[i][1]>=lowLimit && buffer[i][1]<=highLimit)
+			{
+				if(buffer[i][2]>=lowLimit && buffer[i][2]<=highLimit)
+				{
+					
+				}
+			}
+		}
+	}
         printf("Debug: %ld %ld\n",total, readLines);
         total += readLines;
     }
