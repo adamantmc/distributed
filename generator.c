@@ -9,11 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-/*
- * 
- */
-
-
 int checkArgs(char **argv);
 
 int main(int argc, char** argv) {
@@ -23,26 +18,40 @@ int main(int argc, char** argv) {
         printf("%s",usage);
         return 1;
     }
+
     FILE *f = fopen(argv[1], "w");
     if (f == NULL) {
         printf("Error opening file!\n");
         exit(1);
     }
+
     int utime;
     long int ltime;
     int i;
-    int numberCoord = atol(argv[2]);
-    float cords[numberCoord][3];
+    int coordNum = atol(argv[2]);
+
+    float **cords;
+    cords = malloc(coordNum*sizeof(float *));
+    if(cords == NULL) {
+        printf("Memory allocation error. Memory requested: %lu",sizeof(float *)*coordNum);
+    }
+
     ltime = time(NULL);
     utime = (unsigned int) ltime / 2;
     srand(utime);
-    for (i = 0; i < numberCoord; i++) {
+
+    for (i = 0; i < coordNum; i++) {
+	cords[i] = malloc(3*sizeof(float));
         cords[i][0] = (float) 34 * rand() / (RAND_MAX - 1);
         cords[i][1] = (float) 34 * rand() / (RAND_MAX - 1);
         cords[i][2] = (float) 34 * rand() / (RAND_MAX - 1);
-         fprintf(f, "%f %f %f \n", cords[i][0], cords[i][1],cords[i][2]);
+        fprintf(f, "%f %f %f \n", cords[i][0], cords[i][1],cords[i][2]);
+	free(cords[i]);
     }
+
     fclose(f);
+
+    return 0;
 
 }
 int checkArgs(char **argv) {
