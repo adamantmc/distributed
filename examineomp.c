@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
     if(openmp_threads > 0)  omp_set_num_threads(openmp_threads);
     else if(openmp_threads == -1) omp_set_num_threads(omp_get_max_threads());
-
+    int sum=0;
     start = omp_get_wtime();
     while(!done) {
         readLines = read(data, buffer, limit);
@@ -56,26 +56,32 @@ int main(int argc, char** argv) {
             printf("End of file reached\n");
             done = 1;
         }
-	#pragma omp parallel for shared(buffer)
+	#pragma omp parallel for shared(buffer),reduction(+:sum)
 	for(i=0;i<readLines;i++)
 	{
-	   	if(buffer[i][0]>=lowLimit && buffer[i][0]<=highLimit)
+	   	/*if(buffer[i][0]>=lowLimit && buffer[i][0]<=highLimit)
 		{
 			if(buffer[i][1]>=lowLimit && buffer[i][1]<=highLimit)
 			{
 				if(buffer[i][2]>=lowLimit && buffer[i][2]<=highLimit)
 				{
-					printf("%f %f %f \n",buffer[i][0],buffer[i][1],buffer[i][2]);
+					sum=sum+1;
 				}
 			}
-		}
+		}*/
+	
+	if(buffer[i][0]>=lowLimit && buffer[i][0]<=highLimit && buffer[i][1]>=lowLimit && buffer[i][1]<=highLimit && buffer[i][2]>=lowLimit && buffer[i][2]<=highLimit )
+	{
+		sum=sum+1;
+	}
+
 	}
         printf("Debug: %ld %ld\n",total, readLines);
         total += readLines;
     }
 
 t_total = omp_get_wtime() - start;
-printf("Total = %lf secs \n" , t_total);
+printf("Total = %lf secs and %d pleiades in order \n" , t_total,sum);
 
     fclose(data);
     return 0;
