@@ -85,6 +85,7 @@ int main(int argc, char** argv) {
         int rank;
         int size;
         printf ("-==================rank= %d  readlines = %ld\n",openmpi_processes,readLines);
+        //openMpi code
         MPI_Init(&argc, &argv);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
