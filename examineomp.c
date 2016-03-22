@@ -9,15 +9,14 @@
 #define STR_LEN 31
 #define TOK_LEN 9
 
-long read(FILE *file, float **buffer, long limit);
-long read_new(FILE *file, char **buffer, long limit, long totalReadLines);
+long read(FILE *file, char **buffer, long limit, long totalReadLines);
 int checkArgs(char **argv);
 void printTime(struct timespec start, struct timespec end);
 void parse(char *data, int floats, char returnBuffer[3][TOK_LEN]);
 
 int main(int argc, char** argv) {
     char **buffer = NULL;
-    double start,t_total;
+    struct timespec start, end;
     FILE *data;
     int i, j, openmp_threads, openmpi_processes;
     long limit, readLines, runTime, total = 0, sum = 0;
@@ -61,10 +60,10 @@ int main(int argc, char** argv) {
     if(openmp_threads > 0)  omp_set_num_threads(openmp_threads);
     else if(openmp_threads == -1) omp_set_num_threads(omp_get_max_threads());
 
-    start = omp_get_wtime();
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     while(!done) {
-        readLines = read_new(data, buffer, limit, total);
+        readLines = read(data, buffer, limit, total);
 
         if(readLines != -1) total += readLines;
         printf("Lines read so far: %ld | Lines read at latest read call: %ld\n",total, readLines);
@@ -95,8 +94,9 @@ int main(int argc, char** argv) {
         }
     }
 
-    t_total = omp_get_wtime() - start;
-    printf("Total = %lf secs \n" , t_total);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    printTime(start,end);
 
     fclose(data);
     return 0;
@@ -129,20 +129,7 @@ int checkArgs(char **argv) {
     return 0;
 }
 
-long read(FILE *file, float **buffer, long limit) {
-    int i, result;
-    for(i=0; i<BUF_SIZE; i++) {
-        if(buffer[i] != NULL) free(buffer[i]);
-        buffer[i] = (float *) malloc(sizeof(float) * 3);
-        result = fscanf(file,"%f %f %f \n",&buffer[i][0],&buffer[i][1],&buffer[i][2]);
-        if(result == EOF) return (i-1);
-        if(i == limit) return limit;
-
-    }
-    return BUF_SIZE;
-}
-
-long read_new(FILE *data, char **buffer, long limit, long totalReadLines) {
+long read(FILE *data, char **buffer, long limit, long totalReadLines) {
     int result, i;
     size_t length = STR_LEN;
     for(i=0; i<BUF_SIZE; i++) {
