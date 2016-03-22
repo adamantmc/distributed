@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   main.c
  * Author: aristeidis
  *
@@ -28,6 +28,7 @@ int main(int argc, char** argv) {
     int utime;
     long int ltime;
     int i;
+    char zero1, zero2, zero3;
     int coordNum = atol(argv[2]);
 
     float **cords;
@@ -41,12 +42,26 @@ int main(int argc, char** argv) {
     srand(utime);
 
     for (i = 0; i < coordNum; i++) {
-	cords[i] = malloc(3*sizeof(float));
+        zero1 = '\0';
+        zero2 = '\0';
+        zero3 = '\0';
+        cords[i] = malloc(3*sizeof(float));
         cords[i][0] = (float) 34 * rand() / (RAND_MAX - 1);
         cords[i][1] = (float) 34 * rand() / (RAND_MAX - 1);
         cords[i][2] = (float) 34 * rand() / (RAND_MAX - 1);
-        fprintf(f, "%f %f %f \n", cords[i][0], cords[i][1],cords[i][2]);
-	free(cords[i]);
+        
+        if(cords[i][0] < 10) zero1 = '0';
+        if(cords[i][1] < 10) zero2 = '0';
+        if(cords[i][2] < 10) zero3 = '0';
+        
+        if(zero1 != '\0') fprintf(f,"%c",zero1);
+        fprintf(f,"%f ",cords[i][0]);
+        if(zero2 != '\0') fprintf(f,"%c",zero2);
+        fprintf(f,"%f ",cords[i][1]);
+        if(zero3 != '\0') fprintf(f,"%c",zero3);
+        fprintf(f,"%f \n",cords[i][2]);
+
+        free(cords[i]);
     }
 
     fclose(f);
