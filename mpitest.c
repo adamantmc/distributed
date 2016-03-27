@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     int rank, size, i;
     long file_size;
     long lines,readLines = 0;
-	int sum=0;
+	int sum=0, Tsum = 0;
     FILE *data = fopen("file.txt","r");
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -43,16 +43,16 @@ int main(int argc, char *argv[])
 			float floats[3];
             char cords[3][TOK_LEN];
 
-			int j; 
+			int j,k; 
             for(j=0; j<BUF_SIZE; j++) buffer[j] = malloc(sizeof(char) * STR_LEN);
 
             readLines = read(data,buffer,lines,lines*i*STR_LEN);
 			printf("Read lines: %ld\n",readLines);
 			printf("File pointer: %ld\n",ftell(data));
 			#pragma omp parallel for shared(buffer) private(cords), reduction(+:sum)
-			  for(i=0; i<readLines; i++)
+			  for(k=0; k<readLines; k++)
 					{
-						parse(buffer[i],3,cords);
+						parse(buffer[k],3,cords);
 						floats[0] = atof(cords[0]);
 						if(floats[0]>=lowLimit && floats[0]<=highLimit) {
 						    floats[1] = atof(cords[1]);
@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 						    }
 						}
 					}
+			//MPI_Reduce (&sum, &Tsum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
 			printf("sum = %d",sum);
 			/*for(j=0; j<readLines; j++) {
 				printf("Rank: %d %s",i,buffer[j]);
