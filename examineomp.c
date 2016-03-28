@@ -35,9 +35,10 @@ int main(int argc, char** argv) {
     openmpi_processes = atoi(argv[5]);
 
     if(data == NULL) {
-        printf("Could not open specified file.");
+        printf("Could not open specified file.\n");
+        return 1;
     }
-
+    
     //Allocate memory for BUF_SIZE char pointers. Each char pointer will hold a line.
     buffer = malloc(sizeof(char *) * BUF_SIZE);
     if(buffer == NULL) {
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
     //char **cords = malloc(sizeof(char *)*3);
     char cords[3][TOK_LEN];
     float floats[3];
-    for(i=0; i<3; i++) buffer[i] = malloc(sizeof(char)*TOK_LEN);
+    //for(i=0; i<3; i++) buffer[i] = malloc(sizeof(char)*TOK_LEN);
 
     if(openmp_threads > 0)  omp_set_num_threads(openmp_threads);
     else if(openmp_threads == -1) omp_set_num_threads(omp_get_max_threads());
@@ -135,22 +136,20 @@ long read(FILE *data, char **buffer, long limit, long totalReadLines) {
     for(i=0; i<BUF_SIZE; i++) {
         //result =  getline(&buffer[i],&length,data);
         result = fread(buffer[i], sizeof(char), length, data);
-        if(result < length) return (i-1);
-        if(i + totalReadLines == limit) return i;
+        if(result < length) return i;
+        if(i + 1 + totalReadLines == limit) return i+1;
     }
     return BUF_SIZE;
 }
 
 void parse(char *data, int floats, char returnBuffer[3][TOK_LEN]) {
     int i,j;
-    //char buffer[floats][TOK_LEN];
 
     for(i=0; i<TOK_LEN; i++) {
         for(j=0; j<floats; j++) {
             returnBuffer[j][i] = data[i + j*(TOK_LEN + 1)];
         }
     }
-    //for(j=0; j<floats; j++) returnBuffer[j] = buffer[j];
 }
 
 void printTime(struct timespec start, struct timespec end) {
