@@ -17,7 +17,6 @@ ISSUES
 3. openmpi_processes
 */
 int checkArgs(char **argv);
-/* ./allagi */
 void printTime(struct timespec start, struct timespec end);
 long read(FILE *data, char **buffer, long lines, long offset);
 void parse(char *data, int floats, char returnBuffer[3][TOK_LEN]);
@@ -25,16 +24,10 @@ void parse(char *data, int floats, char returnBuffer[3][TOK_LEN]);
 int main(int argc, char *argv[])
 {
     struct timespec start, end;
-    int rank, size, i;
-    long file_size;
-    long lines,readLines = 0;
-    int sum=0, Tsum = 0;
-
-/*allagi*/
-int kk;
-long limit, runTime;
-int openmp_threads, openmpi_processes;
-FILE *data;
+    long file_size, lines, limit, runTime, readLines = 0, remains, offset;
+    int sum=0, Tsum = 0, rank, size, i, openmp_threads, openmpi_processes;
+    FILE *data;
+	char done;
     char usage[] = "Usage: examine\n\t[number of collisions ( -1 as many as in file)]\n\t[maximum run time (-1 unlimited time)]\n\t[input file]\n\t[num of openmp threads (-1 all available threads)]\n\t[num of openmpi processes (-1 all available processes)]\n";
 
     if(checkArgs(argv) == 1) {
@@ -47,54 +40,35 @@ FILE *data;
     data = fopen(argv[3],"r");
     openmp_threads = atoi(argv[4]);
     openmpi_processes = atoi(argv[5]);
+
     if(data == NULL) {
         printf("Could not open specified file.\n");
         return 1;
     }
-/*
-
-FILE *data = fopen("file.txt","r");
-
-./allagi*/
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-/*allagi
-    MPI_Comm_size(MPI_COMM_WORLD, &size); */
-    if(openmpi_processes ==-1)  MPI_Comm_size(MPI_COMM_WORLD, &size);
-    else 
-    {
-	MPI_Comm_size(MPI_COMM_WORLD, &openmpi_processes);
-	size = openmpi_processes;
-    }
-printf("There are %d processes running in this MPI program\n", size);
-/* ./allagi*/
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-
-/*allagi
-    omp_set_num_threads(omp_get_max_threads()); */
     if(openmp_threads > 0)  omp_set_num_threads(openmp_threads);
     else if(openmp_threads == -1) omp_set_num_threads(omp_get_max_threads());
-/*./allagi*/
 
     MPI_Barrier(MPI_COMM_WORLD);
     clock_gettime(CLOCK_MONOTONIC,&start);
 
     for(i=0; i<size; i++) {
         if(rank == i) {
-/*allagi
-            fseek(data,0,SEEK_END);
-*/
-	    if(limit==-1) fseek(data,0,SEEK_END);
-	    else fseek(data,0,limit*31);
-/* ./allagi */
+            if(limit==-1) fseek(data,0,SEEK_END);
+            else fseek(data,limit*31,SEEK_SET); 
             file_size = ftell(data);
             rewind(data);
-
-            if((file_size/STR_LEN)%size==0)
-                lines = (file_size/STR_LEN)/size;
-            else
-                lines = (file_size/STR_LEN)/size+1;
+    
+            lines = (file_size/STR_LEN)/size;
+			offset = lines*STR_LEN*i;
+            remains = (file_size/STR_LEN)%size;
+			
+			if(openmpi_processes == -1 || openmpi_processes >= size) if(rank == size-1) lines += remains;
+			else if(rank == openmpi_processes-1) lines += remains; 
 
             char **buffer = malloc(sizeof(char *) * BUF_SIZE);
 
@@ -104,25 +78,36 @@ printf("There are %d processes running in this MPI program\n", size);
             int j,k;
             for(j=0; j<BUF_SIZE; j++) buffer[j] = malloc(sizeof(char) * STR_LEN);
 
-            readLines = read(data,buffer,lines,lines*i*STR_LEN);
-            printf("Read lines: %ld\n",readLines);
-            printf("File pointer: %ld\n",ftell(data));
-            #pragma omp parallel for shared(buffer) private(cords)
-            for(k=0; k<readLines; k++)
-            {
-                parse(buffer[k],3,cords);
-                floats[0] = atof(cords[0]);
-                if(floats[0]>=lowLimit && floats[0]<=highLimit) {
-                    floats[1] = atof(cords[1]);
-                    if(floats[1] >= lowLimit && floats[1] <= highLimit) {
-                        floats[2] = atof(cords[2]);
-                        if(floats[2] >= lowLimit && floats[2] <= highLimit) {
-                            //sum = sum + 1;
-                            //printf("%f  %f  %f \n ",floats[0],floats[1],floats[2]);
-                        }
-                    }
-                }
-            }
+			printf("Assigned lines: %ld\n",lines);
+
+			done = 0;
+			while(!done) {
+				readLines = read(data,buffer,lines,offset);
+	            printf("Read lines: %ld\n",readLines);
+				printf("File pointer: %ld\n", ftell(data));
+				printf("\n");
+			
+            	#pragma omp parallel for shared(buffer) private(cords)
+            	for(k=0; k<readLines; k++)
+            	{
+            	    parse(buffer[k],3,cords);
+            	    floats[0] = atof(cords[0]);
+            	    if(floats[0]>=lowLimit && floats[0]<=highLimit) {
+            	        floats[1] = atof(cords[1]);
+            	        if(floats[1] >= lowLimit && floats[1] <= highLimit) {
+            	            floats[2] = atof(cords[2]);
+            	            if(floats[2] >= lowLimit && floats[2] <= highLimit) {
+            	                //sum = sum + 1;
+            	                //printf("%f  %f  %f \n ",floats[0],floats[1],floats[2]);
+            	            }
+            	        }
+            	    }
+            	}
+
+				offset += readLines*STR_LEN;
+				lines -= readLines;
+				if(lines <= 0 || readLines == 0) done = 1;
+			}
             //MPI_Reduce (&sum, &Tsum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
             //printf("sum = %d",sum);
             /*for(j=0; j<readLines; j++) {
@@ -143,9 +128,12 @@ printf("There are %d processes running in this MPI program\n", size);
 }
 
 long read(FILE *data, char **buffer, long lines, long offset) {
-    int result, i;
+    int result = 0, i;
     size_t length = STR_LEN;
     fseek(data,offset,SEEK_SET);
+
+	if(lines > BUF_SIZE) lines = BUF_SIZE;
+
     for(i=0; i<lines; i++) {
         result = fread(buffer[i], sizeof(char), length, data);
         if(result < length) return i;
