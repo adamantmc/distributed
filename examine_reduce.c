@@ -12,9 +12,8 @@
 
 /*allagi
 ISSUES
-1. limit
-2.runTime
-3. openmpi_processes
+1.runTime
+2. openmpi_processes
 */
 int checkArgs(char **argv);
 void printTime(struct timespec start, struct timespec end);
@@ -55,7 +54,12 @@ int main(int argc, char *argv[])
 
     MPI_Barrier(MPI_COMM_WORLD);
     clock_gettime(CLOCK_MONOTONIC,&start);
-
+    /*allagi*/
+    if(openmpi_processes<size && openmpi_processes>0) 
+    {
+    	size = openmpi_processes;
+    }
+    /*./allagi*/
     for(i=0; i<size; i++) {
         if(rank == i) {
             if(limit==-1) fseek(data,0,SEEK_END);
