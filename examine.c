@@ -4,20 +4,24 @@
 
 #define lowLimit 12
 #define highLimit 30
+#define STR_LEN 31
 #define BUF_SIZE 5000000
+#define TOK_LEN 9
 
-long read(FILE *file, float **buffer, long limit);
 int checkArgs(char **argv);
 void printTime(struct timespec start, struct timespec end);
+long read(FILE *data, char *buffer, long lines, long offset);
+void parse(char *data, int floats, char returnBuffer[3][TOK_LEN], long line);
+long getTime(struct timespec start, struct timespec end);
 
-int main(int argc, char** argv) {
-    float **buffer;
-    struct timespec start,end;
+int main(int argc, char *argv[])
+{
+    struct timespec start, check, end;
+    long file_size, lines, limit, runTime, readLines = 0, offset;
+    int sum=0, i;
     FILE *data;
-    int i, openmp_threads, openmpi_processes;
-    long limit, readLines, runTime, total = 0;
-    char done = 0;
-    char usage[] = "Usage: examine\n\t[number of collisions ( -1 as many as in file)]\n\t[maximum run time (-1 unlimited time)]\n\t[input file]\n\t[num of openmp threads (-1 all available threads)]\n\t[num of openmpi processes (-1 all available processes)]\n";
+    char done;
+    char usage[] = "Usage: examine\n\t[number of collisions ( -1 as many as in file)]\n\t[maximum run time (-1 unlimited time)]\n\t[input file]\n";
 
     if(checkArgs(argv) == 1) {
         printf("%s",usage);
@@ -27,96 +31,99 @@ int main(int argc, char** argv) {
     limit = atol(argv[1]);
     runTime = atol(argv[2]);
     data = fopen(argv[3],"r");
-    openmp_threads = atoi(argv[4]);
-    openmpi_processes = atoi(argv[5]);
 
     if(data == NULL) {
-        printf("Could not open specified file.");
-    }
-
-    buffer = malloc(sizeof(float *) * BUF_SIZE);
-    if(buffer == NULL) {
-        fprintf(stderr,"Could not allocate memory for buffer. Memory requested: %lu KBs.",BUF_SIZE * sizeof(float *));
+        printf("Could not open specified file.\n");
         return 1;
     }
 
+    clock_gettime(CLOCK_MONOTONIC,&start);
 
+    fseek(data,0,SEEK_END);
+    file_size = ftell(data);
+    if(limit != -1 && limit < file_size/STR_LEN) fseek(data,limit*31,SEEK_SET);
+    file_size = ftell(data);
+    rewind(data);
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    lines = file_size/STR_LEN;
+    offset = 0;
 
+    char *buffer = malloc(sizeof(char) * STR_LEN * BUF_SIZE);
+
+    float floats[3];
+    char cords[3][TOK_LEN];
+
+    done = 0;
     while(!done) {
-        readLines = read(data, buffer, limit);
-        if(readLines == limit) {
-            printf("Limit reached.\n");
-            done = 1;
-        }
-       
-        else if(readLines < BUF_SIZE) {
-            printf("End of file reached\n");
-            done = 1;
-        }
-	
-	for(i=0;i<readLines;i++)
-	{	
-	   	if(buffer[i][0]>=lowLimit && buffer[i][0]<=highLimit)
-		{
-			if(buffer[i][1]>=lowLimit && buffer[i][1]<=highLimit)
-			{
-				if(buffer[i][2]>=lowLimit && buffer[i][2]<=highLimit)
-				{
-					
+        readLines = read(data,buffer,lines,offset);
+        printf("Read lines: %ld\n",readLines);
+        printf("File pointer: %ld\n", ftell(data));
+        printf("\n");
+
+        for(i=0; i<readLines; i++)
+        {
+			if(runTime != -1) {
+				clock_gettime(CLOCK_MONOTONIC, &check);
+				if(getTime(start,check) > runTime) {
+					printf("Specified running time surpassed.\n");
+					return 1;
 				}
 			}
-		}
-	}
-        printf("Debug: %ld %ld\n",total, readLines);
-        total += readLines;
+
+            parse(buffer,3,cords,i);
+            floats[0] = atof(cords[0]);
+            if(floats[0]>=lowLimit && floats[0]<=highLimit) {
+                floats[1] = atof(cords[1]);
+                if(floats[1] >= lowLimit && floats[1] <= highLimit) {
+                    floats[2] = atof(cords[2]);
+                    if(floats[2] >= lowLimit && floats[2] <= highLimit) {
+                        sum = sum + 1;
+                    }
+                }
+            }
+        }
+
+        offset += readLines*STR_LEN;
+        lines -= readLines;
+        if(lines <= 0 || readLines == 0) done = 1;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    free(buffer);
 
-    printTime(start, end);
+    clock_gettime(CLOCK_MONOTONIC,&end);
+    printTime(start,end);
 
-    fclose(data);
+    printf("Sum: %d\n",sum);
     return 0;
 }
 
-int checkArgs(char **argv) {
-    if(argv[1] == NULL) {
-        printf("Number of collisions not specified.\n");
-        return 1;
-    }
 
-    if(argv[2] == NULL) {
-        printf("Maximum run time not specified.\n");
-        return 1;
-    }
-    if(argv[3] == NULL) {
-        printf("Input file not specified.\n");
-        return 1;
-    }
-    if(argv[4] == NULL) {
-        printf("OpenMP threads not specified.\n");
-        return 1;
-    }
 
-    if(argv[5] == NULL) {
-        printf("OpenMPI process number not specified.\n");
-        return 1;
-    }
+long read(FILE *data, char *buffer, long lines, long offset) {
+    long result = 0;
+    size_t length;
+    fseek(data,offset,SEEK_SET);
 
-    return 0;
+    int i;
+
+    if(lines > BUF_SIZE) lines = BUF_SIZE;
+    length = STR_LEN * lines;
+    result = fread(buffer, sizeof(char), length, data);
+
+    printf("Lines: %ld Offset: %ld\n",lines,offset);
+    printf("Length: %ld Result: %ld Result/31: %ld\n",length,result,result/31);
+
+    return result / 31;
 }
 
-long read(FILE *file, float **buffer, long limit) {
-    int i, result;
-    for(i=0; i<BUF_SIZE; i++) {
-        buffer[i] = (float *) malloc(sizeof(float) * 3);
-        result = fscanf(file,"%f %f %f \n",&buffer[i][0],&buffer[i][1],&buffer[i][2]);
-        if(result == EOF) return (i-1);
-        if(i == limit) return limit;
+void parse(char *data, int floats, char returnBuffer[3][TOK_LEN], long line) {
+    int i,j, temp;
+    for(i=0; i<TOK_LEN; i++) {
+        temp = i + line*STR_LEN;
+        for(j=0; j<floats; j++) {
+            returnBuffer[j][i] = data[(temp + j*(TOK_LEN + 1))];
+        }
     }
-    return BUF_SIZE;
 }
 
 void printTime(struct timespec start, struct timespec end) {
@@ -129,5 +136,27 @@ void printTime(struct timespec start, struct timespec end) {
         timeElapsed_s--;
     }
     printf("Time: %ld.%09ld secs \n",timeElapsed_s,timeElapsed_n);
+}
 
+long getTime(struct timespec start, struct timespec end) {
+	return (end.tv_sec - start.tv_sec); 
+}
+
+int checkArgs(char **argv) {
+    if(argv[1] == NULL) {
+        printf("Number of collisions not specified.\n");
+        return 1;
+    }
+
+    if(argv[2] == NULL) {
+        printf("Maximum run time not specified.\n");
+        return 1;
+    }
+
+    if(argv[3] == NULL) {
+        printf("Input file not specified.\n");
+        return 1;
+    }
+
+    return 0;
 }
