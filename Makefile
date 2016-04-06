@@ -12,8 +12,8 @@ generator.o: generator.c
 
 examine: 
 	#$(CC) examineomp.o -o examineomp.out
-	gcc -fopenmp examineomp.c -o examineomp.out
-	./examineomp.out -1 -1 data.txt 20 1 	
+	mpicc -fopenmp -o examine_reduce.out examine_reduce.c 
+	mpirun ./examine_reduce.out -1 -1 data.txt -1 -1 	
 
 examineomp.o: examineomp.c
 	$(CC) $(CFF) examineomp.c
