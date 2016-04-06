@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     long file_size, lines, limit, runTime, readLines = 0, remains, offset, k;
     int sum=0, total_sum = 0, rank, size, i, openmp_threads, openmpi_processes;
     FILE *data;
-	char done = 0;
+    char done = 0;
     char usage[] = "Usage: examine\n\t[number of collisions ( -1 as many as in file)]\n\t[maximum run time (-1 unlimited time)]\n\t[input file]\n\t[num of openmp threads (-1 all available threads)]\n\t[num of openmpi processes (-1 all available processes)]\n";
 
     if(checkArgs(argv) == 1) {
@@ -55,55 +55,55 @@ int main(int argc, char *argv[])
 
             fseek(data,0,SEEK_END);
             file_size = ftell(data);
-            
-            if(limit != -1 && limit < file_size/STR_LEN) fseek(data,limit*31,SEEK_SET); 
-            
+
+            if(limit != -1 && limit < file_size/STR_LEN) fseek(data,limit*31,SEEK_SET);
+
             file_size = ftell(data);
             rewind(data);
-    
+
             lines = (file_size/STR_LEN)/size;
-			offset = lines*STR_LEN*i;
+            offset = lines*STR_LEN*i;
             remains = (file_size/STR_LEN)%size;
-			
-			if(openmpi_processes == -1 || openmpi_processes >= size) if(rank == size-1) lines += remains;
-			else if(rank == openmpi_processes-1) lines += remains; 
+
+            if(openmpi_processes == -1 || openmpi_processes >= size) if(rank == size-1) lines += remains;
+                else if(rank == openmpi_processes-1) lines += remains;
 
             char *buffer = malloc(sizeof(char) * BUF_SIZE * STR_LEN);
 
             float floats[3];
             char cords[3][TOK_LEN];
-            
-			printf("Assigned lines: %ld\n",lines);
 
-			while(!done) {
-				readLines = read(data,buffer,lines,offset);
-	            printf("Read lines: %ld\n",readLines);
-				printf("File pointer: %ld\n", ftell(data));
-				printf("\n");
-				
-            	#pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum)
-            	for(k=0; k<readLines; k++)
-            	{
-            	    parse(buffer,3,cords,k);
-            	    floats[0] = atof(cords[0]);
-            	    if(floats[0]>=lowLimit && floats[0]<=highLimit) {
-            	        floats[1] = atof(cords[1]);
-            	        if(floats[1] >= lowLimit && floats[1] <= highLimit) {
-            	            floats[2] = atof(cords[2]);
-            	            if(floats[2] >= lowLimit && floats[2] <= highLimit) {
-            	                sum = sum + 1;
-            	            }
-            	        }
-            	    }
-            	}
+            printf("Assigned lines: %ld\n",lines);
 
-				offset += readLines*STR_LEN;
-				lines -= readLines;
-				if(lines <= 0 || readLines == 0) done = 1;
-			}
-            
-			MPI_Reduce (&sum, &total_sum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
-            
+            while(!done) {
+                readLines = read(data,buffer,lines,offset);
+                printf("Read lines: %ld\n",readLines);
+                printf("File pointer: %ld\n", ftell(data));
+                printf("\n");
+
+                #pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum)
+                for(k=0; k<readLines; k++)
+                {
+                    parse(buffer,3,cords,k);
+                    floats[0] = atof(cords[0]);
+                    if(floats[0]>=lowLimit && floats[0]<=highLimit) {
+                        floats[1] = atof(cords[1]);
+                        if(floats[1] >= lowLimit && floats[1] <= highLimit) {
+                            floats[2] = atof(cords[2]);
+                            if(floats[2] >= lowLimit && floats[2] <= highLimit) {
+                                sum = sum + 1;
+                            }
+                        }
+                    }
+                }
+
+                offset += readLines*STR_LEN;
+                lines -= readLines;
+                if(lines <= 0 || readLines == 0) done = 1;
+            }
+
+            MPI_Reduce (&sum, &total_sum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
+
             free(buffer);
         }
     }
@@ -113,9 +113,9 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_MONOTONIC,&end);
 
     if(rank == 0) {
-		printf("%d Valid Collisions\n",total_sum);
-		printTime(start,end);		
-	}
+        printf("%d Valid Collisions\n",total_sum);
+        printTime(start,end);
+    }
 
     MPI_Finalize();
     return 0;
@@ -125,17 +125,17 @@ long read(FILE *data, char *buffer, long lines, long offset) {
     long result = 0;
     size_t length;
     fseek(data,offset,SEEK_SET);
-	
-	int i;
 
-	if(lines > BUF_SIZE) lines = BUF_SIZE;
-	length = STR_LEN * lines;
+    int i;
+
+    if(lines > BUF_SIZE) lines = BUF_SIZE;
+    length = STR_LEN * lines;
     result = fread(buffer, sizeof(char), length, data);
 
-	printf("Lines: %ld Offset: %ld\n",lines,offset);
-	printf("Length: %ld Result: %ld Result/STR_LEN: %ld\n",length,result,result/31);
-	    
-	return result / STR_LEN;
+    printf("Lines: %ld Offset: %ld\n",lines,offset);
+    printf("Length: %ld Result: %ld Result/STR_LEN: %ld\n",length,result,result/31);
+
+    return result / STR_LEN;
 }
 
 void parse(char *data, int floats, char returnBuffer[3][TOK_LEN], long line) {
