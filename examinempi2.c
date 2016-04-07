@@ -66,19 +66,6 @@ int main(int argc, char *argv[])
 	
     for(i=0; i<size; i++) {
         if(rank == i) {
-	    /* allagi */
-	    	if(isrunTime) {
-				clock_gettime(CLOCK_MONOTONIC,&now);
-				if(checkTime(runTime,start,now) == 1)
-				{
-					if(!finalizeCalled)
-					{
-						finalizeCalled = 1;
-						MPI_Finalize();
-					}
-				}
-			}
-		/* ./allagi */
             fseek(data,0,SEEK_END);
             file_size = ftell(data);
 
@@ -101,25 +88,11 @@ int main(int argc, char *argv[])
 
             printf("Assigned lines: %ld\n",lines);
 
-            while(!done) {
-		    /* allagi */
-		    	if(isrunTime) {
-					clock_gettime(CLOCK_MONOTONIC,&now);
-					if(checkTime(runTime,start,now) == 1)
-					{
-						if(!finalizeCalled)
-						{
-							finalizeCalled = 1;
-							MPI_Finalize();
-						}
-					}
-				}
-			/* ./allagi */
+            while(!done && !finalizeCalled) {
                 readLines = read(data,buffer,lines,offset);
                 printf("Read lines: %ld\n",readLines);
                 printf("File pointer: %ld\n", ftell(data));
                 printf("\n");
-		    /* allagi */
 		    	if(isrunTime) {
 					clock_gettime(CLOCK_MONOTONIC,&now);
 					if(checkTime(runTime,start,now) == 1)
@@ -127,27 +100,13 @@ int main(int argc, char *argv[])
 						if(!finalizeCalled)
 						{
 							finalizeCalled = 1;
-							MPI_Finalize();
+							done = 1;
 						}
 					}
 				}
-			/* ./allagi */
                 #pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum)
                 for(k=0; k<readLines; k++)
                 {
-			    /* allagi */
-			    	if(isrunTime) {
-						clock_gettime(CLOCK_MONOTONIC,&now);
-						if(checkTime(runTime,start,now) == 1)
-						{
-							if(!finalizeCalled)
-							{
-								finalizeCalled = 1;
-								MPI_Finalize();
-							}
-						}
-					}
-				/* ./allagi */
                     parse(buffer,3,cords,k);
                     floats[0] = atof(cords[0]);
                     if(floats[0]>=lowLimit && floats[0]<=highLimit) {
@@ -159,31 +118,34 @@ int main(int argc, char *argv[])
                             }
                         }
                     }
+			    	if(isrunTime) {
+						clock_gettime(CLOCK_MONOTONIC,&now);
+						if(checkTime(runTime,start,now) == 1)
+						{
+								finalizeCalled = 1;
+								k = readLines;
+						}
+					}                   
+
                 }
 
                 offset += readLines*STR_LEN;
                 lines -= readLines;
                 if(lines <= 0 || readLines == 0) done = 1;
+                if(finalizeCalled) done = 1;
             }
-			if(!finalizeCalled){
-            	MPI_Reduce (&sum, &total_sum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
-			}
+            MPI_Reduce (&sum, &total_sum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
             free(buffer);
         }
     }
-	if(!finalizeCalled){
     	MPI_Barrier(MPI_COMM_WORLD);
-	}
     clock_gettime(CLOCK_MONOTONIC,&end);
 
     if(rank == 0) {
         printf("%d Valid Collisions\n",total_sum);
         printTime(start,end);
     }
-	if(!finalizeCalled)
-	{
-    	MPI_Finalize();
-    }
+    MPI_Finalize();
     return 0;
 }
 
