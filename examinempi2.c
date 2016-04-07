@@ -16,6 +16,7 @@ long read(FILE *data, char *buffer, long lines, long offset);
 void parse(char *data, int floats, char returnBuffer[3][TOK_LEN], long line);
 /* allagi */
 int checkTime(double runTime,struct timespec start, struct timespec now);
+double returnTime(struct timespec start, struct timespec end);
 /*./ allagi */
 int main(int argc, char *argv[])
 {
@@ -26,6 +27,8 @@ int main(int argc, char *argv[])
     double runTime;
     char isrunTime = 0;
     char finalizeCalled = 0;
+    int totalLines = 0,lineSum = 0;
+    double timePassed = 0.0;
     /*./ allagi */
     FILE *data;
     char done = 0;
@@ -115,9 +118,10 @@ int main(int argc, char *argv[])
 					}
 				}
 				if(!finalizeCalled){
-                #pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum)
+                #pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum,lineSum)
                 for(k=0; k<readLines; k++)
                 {
+                	lineSum = lineSum + 1;
                     parse(buffer,3,cords,k);
                     floats[0] = atof(cords[0]);
                     if(floats[0]>=lowLimit && floats[0]<=highLimit) {
@@ -126,6 +130,7 @@ int main(int argc, char *argv[])
                             floats[2] = atof(cords[2]);
                             if(floats[2] >= lowLimit && floats[2] <= highLimit) {
                                 sum = sum + 1;
+                                
                             }
                         }
                     }
@@ -147,14 +152,19 @@ int main(int argc, char *argv[])
                 if(finalizeCalled) done = 1;
             }
             MPI_Reduce (&sum, &total_sum, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
+            MPI_Reduce (&lineSum, &totalLines, 1, MPI_FLOAT, MPI_SUM,0,MPI_COMM_WORLD);
             free(buffer);
         }
     }
-    	MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
     clock_gettime(CLOCK_MONOTONIC,&end);
 
     if(rank == 0) {
+		
         printf("%d Valid Collisions\n",total_sum);
+        printf("%d total lines read \n",totalLines);
+        timePassed = returnTime(start,end);
+        printf("%f lines read/sec\n",totalLines/timePassed);
         printTime(start,end);
     }
     MPI_Finalize();
@@ -174,7 +184,6 @@ long read(FILE *data, char *buffer, long lines, long offset) {
 
     printf("Lines: %ld Offset: %ld\n",lines,offset);
     printf("Length: %ld Result: %ld Result/STR_LEN: %ld\n",length,result,result/31);
-
     return result / STR_LEN;
 }
 
@@ -200,6 +209,7 @@ void printTime(struct timespec start, struct timespec end) {
     printf("Time: %ld.%09ld secs \n",timeElapsed_s,timeElapsed_n);
 }
 
+
 int checkTime(double runTime,struct timespec start, struct timespec now) {
     const int DAS_NANO_SECONDS_IN_SEC = 1000000000;
     long timeElapsed_s = now.tv_sec - start.tv_sec;
@@ -209,6 +219,13 @@ int checkTime(double runTime,struct timespec start, struct timespec now) {
 		return 1;
     }
     return 0;
+}
+double returnTime(struct timespec start, struct timespec end) {
+    const int DAS_NANO_SECONDS_IN_SEC = 1000000000;
+    long timeElapsed_s = end.tv_sec - start.tv_sec;
+    long timeElapsed_n = end.tv_nsec - start.tv_nsec;
+    double synolo = timeElapsed_s + (timeElapsed_n/1000000000.0);
+	return synolo;
 }
 
 int checkArgs(char **argv) {
