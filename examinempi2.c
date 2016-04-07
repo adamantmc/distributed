@@ -87,7 +87,17 @@ int main(int argc, char *argv[])
             char cords[3][TOK_LEN];
 
             printf("Assigned lines: %ld\n",lines);
-
+		    	if(isrunTime) {
+					clock_gettime(CLOCK_MONOTONIC,&now);
+					if(checkTime(runTime,start,now) == 1)
+					{
+						if(!finalizeCalled)
+						{
+							finalizeCalled = 1;
+							done = 1;
+						}
+					}
+				}
             while(!done && !finalizeCalled) {
                 readLines = read(data,buffer,lines,offset);
                 printf("Read lines: %ld\n",readLines);
@@ -104,6 +114,7 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
+				if(!finalizeCalled){
                 #pragma omp parallel for shared(buffer) private(cords, floats) reduction(+:sum)
                 for(k=0; k<readLines; k++)
                 {
@@ -127,6 +138,7 @@ int main(int argc, char *argv[])
 						}
 					}                   
 
+                }
                 }
 
                 offset += readLines*STR_LEN;
